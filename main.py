@@ -1,4 +1,4 @@
-"""PDP with soft deadlines"""
+"""PDP with soft deadlines and multiple depots"""
 
 import numpy as np
 # import tensorflow as tf
