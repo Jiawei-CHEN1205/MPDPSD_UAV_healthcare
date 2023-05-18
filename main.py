@@ -214,7 +214,7 @@ def main():
 
     transit_callback_index = routing.RegisterTransitCallback(distance_callback)
     routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
-
+#   routing.SetArcCostEvaluatorOfVehicle()
     # Add Distance constraint.
     dimension_name = 'Distance'
     routing.AddDimension(
