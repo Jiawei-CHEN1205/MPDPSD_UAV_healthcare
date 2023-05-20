@@ -16,7 +16,7 @@ vehicle_num_human = 10  # 10
 vehicle_num = vehicle_num_uav + vehicle_num_human
 
 w_uav = 1  # unitcost_uav per distance # 1
-w_human = 100  # unitcost_human per distance # 10
+w_human = 200  # unitcost_human per distance # 10-400都可以
 H_d = 100  # penalty cost for exceeding the ddl in set D, otherwise 0
 
 capacity_uav = 40  # 30
@@ -26,7 +26,7 @@ speed_human = 0.1
 
 # size_order = 20
 # demand_p = random.sample(range(20, 41), size_order)  # demand range 20,40
-size_order = 20
+size_order = 30
 demand_p = random.choices(range(20, 41), k=size_order)  # 有放回的choices 否则订单数大于20会报错
 demand_d = [-x for x in demand_p]  # negative demand in D set
 
@@ -52,7 +52,7 @@ time_windows = []
 for row in time_window1:
     time_windows.append((int(row[0]), int(row[1])))
 
-print(time_windows)
+print(f"time_windows: {len(time_windows)}")
 # print(len(time_windows)) # 55 = 20+20+15
 # print(time_windows.shape)
 
@@ -63,9 +63,9 @@ def dist_pd(loc_p, loc_d):
     dist = torch.sqrt(square_dist)
     return dist
 
-
-loc_p_coor = torch.FloatTensor(size_order, 2).uniform_(0, 10)  # P locations coordinates
-loc_d_coor = torch.FloatTensor(size_order, 2).uniform_(0, 10)  # D locations coordinates
+# if uniform(0,10) 前面的cost就不能设置的太大 我感觉可能是因为计算限制的问题 反正超过200就跑不出来了
+loc_p_coor = torch.FloatTensor(size_order, 2).uniform_(0, 1)  # P locations coordinates
+loc_d_coor = torch.FloatTensor(size_order, 2).uniform_(0, 1)  # D locations coordinates
 
 dist_pds = dist_pd(loc_p_coor, loc_d_coor)  # dist from p to d one-by-one
 depots_coor = loc_p_coor[torch.randint(0, size_order, (vehicle_num,))]  # depots_coordinate sample from locations_p
@@ -104,7 +104,15 @@ for i in range(len(loc_all)):
     for j in range(len(loc_all)):
         time_matrix[i][j] = (np.sqrt(np.sum((np.array(loc_all[i]) - np.array(loc_all[j])) ** 2))) / vehicle_speed
 
+vehicle_cost_map = [None] * vehicle_num
+for vehicle_id in range(vehicle_num_uav):
+    vehicle_cost_map[vehicle_id] = int(w_uav)  # 1
+for vehicle_id in range(vehicle_num_uav, vehicle_num):
+    vehicle_cost_map[vehicle_id] = int(w_human)  # 10
+print("vehicle_cost_map:", vehicle_cost_map)
 
+
+# 1. data model
 def create_data_model():
     """Stores the data for the problem."""
     data = {}
@@ -132,9 +140,12 @@ def create_data_model():
     data['ends'] = list(range(vehicle_num))
         # [1,2,3,4,5,6,7,8,9,10,11,12,13,14,0]
         # [40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54] #list(range(vehicle_num))  # [0, 3, 4, 5]  # [2, 10, 7, 6]
+
+    data['time_matrix'] = time_matrix
+    data['time_windows'] = time_windows
     return data
 
-
+# 2. print solution
 def print_solution(data, manager, routing, solution):
     """Prints solution on console."""
     print(f'Objective: {solution.ObjectiveValue()}')
@@ -152,7 +163,7 @@ def print_solution(data, manager, routing, solution):
             previous_index = index
             index = solution.Value(routing.NextVar(index))
             route_distance += routing.GetArcCostForVehicle(
-                previous_index, index, vehicle_id)
+                previous_index, index, vehicle_id)  # SetArcCostEvaluatorOfVehicle
         plan_output += ' {0} load({1})\n'.format(manager.IndexToNode(index),
                                                  route_load)
         plan_output += 'Distance of the route: {}m\n'.format(route_distance)
@@ -164,6 +175,8 @@ def print_solution(data, manager, routing, solution):
     print('Total load of all routes: {}'.format(total_load))
 
 
+
+# 3. main func
 def main():
     """Solve the CVRP problem."""
     # Instantiate the data problem.
@@ -178,38 +191,48 @@ def main():
 
     # (new) Define cost of each arc:
     # all SetArcCostEvaluatorOfAllVehicles()替换成下面的函数routing.SetArcCostEvaluatorOfVehicle()
-    vehicle_cost_map = [None] * vehicle_num
-    for vehicle_id in range(vehicle_num_uav):
-        vehicle_cost_map[vehicle_id] = int(w_uav)  # 1
-    for vehicle_id in range(vehicle_num_uav, vehicle_num):
-        vehicle_cost_map[vehicle_id] = int(w_human)  # 10
-    print("vehicle_cost_map:", vehicle_cost_map)
+    # vehicle_cost_map = [None] * vehicle_num
+    # for vehicle_id in range(vehicle_num_uav):
+    #     vehicle_cost_map[vehicle_id] = int(w_uav)  # 1
+    # for vehicle_id in range(vehicle_num_uav, vehicle_num):
+    #     vehicle_cost_map[vehicle_id] = int(w_human)  # 10
+    # print("vehicle_cost_map:", vehicle_cost_map)
 
     def distance_callback(from_index, to_index):  # cost_callback
-        # Define travel cost of each arc.
-        # Convert from routing variable Index to distance matrix NodeIndex.
         from_node = manager.IndexToNode(from_index)
         to_node = manager.IndexToNode(to_index)
-        vehicle_cost = vehicle_cost_map[vehicle_i][0]  # vehicle_i 是调用下面SetArcCostEvaluatorOfVehicle函数时传入的参数arg2
+        vehicle_cost = vehicle_cost_map[vehicle_id]  # vehicle_i 是调用下面SetArcCostEvaluatorOfVehicle函数时传入的参数arg2
         return data['distance_matrix'][from_node][to_node] * vehicle_cost
 
     transit_callback_index = routing.RegisterTransitCallback(distance_callback)
-    for vehicle_i in range(len(vehicle_cost_map)):
-        routing.SetArcCostEvaluatorOfVehicle(transit_callback_index, vehicle_i)  # 区别all的arcCost函数
+    for vehicle_id in range(len(vehicle_cost_map)):
+        routing.SetArcCostEvaluatorOfVehicle(transit_callback_index, vehicle_id)  # 区别all的arcCost函数
 
-    # Create and register a transit callback.
-    def distance_callback(from_index, to_index):
-        """Returns the distance between the two nodes."""
-        # Convert from routing variable Index to distance matrix NodeIndex.
-        from_node = manager.IndexToNode(from_index)
-        to_node = manager.IndexToNode(to_index)
-        return data['distance_matrix'][from_node][to_node]
+    # # origin dist cost from(
+    # def distance_callback(from_index, to_index):
+    #     """Returns the distance between the two nodes."""
+    #     # Convert from routing variable Index to distance matrix NodeIndex.
+    #     from_node = manager.IndexToNode(from_index)
+    #     to_node = manager.IndexToNode(to_index)
+    #     return data['distance_matrix'][from_node][to_node]
+    #
+    # transit_callback_index = routing.RegisterTransitCallback(distance_callback)
+    #
+    # ## Define cost of each arc.
+    # routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
+    # # origin dist cost ends)
 
-    transit_callback_index = routing.RegisterTransitCallback(distance_callback)
-
-    # Define cost of each arc.
-    routing.SetArcCostEvaluatorOfAllVehicles(transit_callback_index)
-
+    # another approach to assign diff cost for each vehicle(:
+    # for vehicle_i in range(len(vehicle_cost_map)):
+    #     def distance_callback(from_index, to_index):  # cost_callback
+    #         from_node = manager.IndexToNode(from_index)
+    #         to_node = manager.IndexToNode(to_index)
+    #         vehicle_cost = vehicle_cost_map[vehicle_i]
+    #         return data['distance_matrix'][from_node][to_node] * vehicle_cost
+    #
+    #     transit_callback_index = routing.RegisterTransitCallback(distance_callback)
+    #     routing.SetArcCostEvaluatorOfVehicle(transit_callback_index, vehicle_i)
+    # ends here)
 
     # Add Capacity constraint.
     def demand_callback(from_index):
@@ -239,6 +262,20 @@ def main():
         dimension_name)
     distance_dimension = routing.GetDimensionOrDie(dimension_name)
 
+
+    # Define Transportation Requests.
+    # for request in data['pickups_deliveries']:
+    #     pickup_index = manager.NodeToIndex(request[0])
+    #     delivery_index = manager.NodeToIndex(request[1])
+    #     for vehicle_id in range(len(vehicle_cost_map)):
+    #         routing.AddPickupAndDelivery(pickup_index, delivery_index, vehicle_id)
+    #     # routing.AddPickupAndDelivery(pickup_index, delivery_index)
+    #         routing.solver().Add(
+    #             routing.VehicleVar(pickup_index) == routing.VehicleVar(
+    #                 delivery_index))
+    #         routing.solver().Add(
+    #             distance_dimension.CumulVar(pickup_index) <=
+    #             distance_dimension.CumulVar(delivery_index))
 
     # Define Transportation Requests.
     for request in data['pickups_deliveries']:
