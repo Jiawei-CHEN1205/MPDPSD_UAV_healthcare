@@ -1,7 +1,8 @@
 # 0518：尝试修改多个depot 成功，cost已经加上vehicle的不同，capacity满足最大限制；
 # 发现受到capacity的影响 而且由于cost和距离相关 因此最优解倾向于最少的车辆完成所有任务，且order可以大于20
 # 在参数（车辆5-10，w_cost 1-100, capacity both 40的情况下 一般可以利用到3辆车 因为demand的范围20-40
-# 0519：尝试给每个订单加上时间窗
+# 0519：尝试给每个订单加上时间窗, 
+# 0523: 成功，相当于硬约束是满足条件的，但是Time window那个array的设置 不能太紧凑 否则容易无解（slack 10以上）
 """Capacited Vehicles Routing Problem (CVRP)."""
 import numpy as np
 import torch
