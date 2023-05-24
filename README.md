@@ -10,10 +10,10 @@ w_uav = 1  # unitcost_uav per distance # 1
 w_human = 50  # unitcost_human per distance # 10-400都可以
 capacity_uav = 40  # 30
 capacity_human = 100  # 100
-speed_uav = 0.2 # speed 的不同影响的是distance的cost结果不同 倍数关系
+speed_uav = 0.2 # speed按理说会影响time_matrix(node to node),但是现阶段的这个矩阵是一样的（设置了一个统一的speed = 0.2）
 speed_human = 0.1
 （location参数）均匀分布 0-10
-# if uniform(0,10) 前面的cost就不能设置的太大 我感觉可能是因为计算限制的问题 反正超过200就跑不出来了
+% if uniform(0,10) 前面的cost就不能设置的太大 我感觉可能是因为计算限制的问题 反正超过200就跑不出来了
 loc_p_coor = torch.FloatTensor(size_order, 2).uniform_(0, 10)  # P locations coordinates
 loc_d_coor = torch.FloatTensor(size_order, 2).uniform_(0, 10)  # D locations coordinates
 
@@ -33,7 +33,7 @@ distance_matrix: [[0.         5.95191526 0.         ... 3.96181941 2.15440035 0.
  [3.96181941 2.04630065 3.96181941 ... 0.         4.70486212 4.89719105]
  [2.15440035 6.34482765 2.15440035 ... 4.70486212 0.         2.5546174 ]
  [0.97736061 6.90714455 0.97736061 ... 4.89719105 2.5546174  0.        ]]
- # P_D index表格：
+ % P_D index表格：
 [[15 45]
  [16 46]
  [17 47]
@@ -74,7 +74,8 @@ time_matrix: [[ 0 29  0 ... 19 10  4]
 time_windows: [(0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 99999), (0, 83), (0, 90), (0, 69), (0, 83), (0, 52), (0, 88), (0, 78), (0, 84), (0, 109), (0, 82), (0, 58), (0, 105), (0, 62), (0, 81), (0, 59), (0, 72), (0, 107), (0, 78), (0, 62), (0, 84), (0, 76), (0, 62), (0, 102), (0, 78), (0, 87), (0, 62), (0, 107), (0, 91), (0, 99), (0, 91)]
 vehicle_cost_map: [1, 1, 1, 1, 1, 50, 50, 50, 50, 50, 50, 50, 50, 50, 50]
 [40, 40, 40, 40, 40, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100]
-Objective: 7397
+**Objective: 7397**
+% 我们的目标是优化总体的运行distance（当然每个车的distance是和unit_cost直接成倍数关系的，因此相当于优化总体的运送成本，而soft时间窗约束目前还没有加上）
 Route for vehicle 0:
  0 Load(0) ->  29 Load(29) ->  59 Load(0) ->  34 Load(30) ->  64 Load(0) ->  0 Load(0)
 Distance of the route: 759m
@@ -150,8 +151,9 @@ Route for vehicle 14:
 Distance of the route: 1137m
 Load of the route: 0
 
-Total distance of all routes: 7397m
-Total load of all routes: 0
+**Total distance of all routes: 7397m
+Total load of all routes: 0**
+
 Route for vehicle 0:
 0 Time(0,0) -> 29 Time(7,7) -> 59 Time(37,37) -> 34 Time(40,40) -> 64 Time(52,52) -> 0 Time(74,74)
 Time of the route: 74min
@@ -212,6 +214,6 @@ Route for vehicle 14:
 14 Time(0,0) -> 24 Time(0,0) -> 32 Time(12,12) -> 30 Time(12,12) -> 62 Time(28,28) -> 31 Time(29,29) -> 60 Time(36,36) -> 18 Time(52,52) -> 54 Time(72,72) -> 48 Time(80,80) -> 61 Time(86,86) -> 14 Time(108,108)
 Time of the route: 108min
 
-Total time of all routes: 711min
+**Total time of all routes: 711min**
 
 Process finished with exit code 0
